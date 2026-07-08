@@ -1,0 +1,7 @@
+name: astrbot_plugin_msg_stat
+display_name: AI消息&Token统计
+desc: 统计 AI 在群聊/私聊中的发言次数与 Token 用量，支持合并转发、全局报表、每日午夜报告和持久化 Token 池
+short_desc: AI 消息统计 + Token 池 + 每日报告，数据持久化
+author: yuebai
+version: 2.0.0
+repo: https://github.com/yuebai5203/astrbot_plugin_msg_stat
