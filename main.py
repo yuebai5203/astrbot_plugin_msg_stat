@@ -12,7 +12,7 @@ astrbot_plugin_msg_stat - AI 消息 & Token 统计插件
 - 看看token      → 今日/累计 Token 使用量
 
 Author: yuebai
-Version: 2.0.0
+Version: 2.1.0
 """
 
 import asyncio
@@ -51,7 +51,7 @@ def _yesterday() -> str:
     "astrbot_plugin_msg_stat",
     "yuebai",
     "AI消息&Token统计：消息计数、Token持久化追踪、每日午夜报表",
-    "2.0.0",
+    "2.1.0",
 )
 class MsgStat(Star):
     """
@@ -423,14 +423,23 @@ class MsgStat(Star):
         count_1h = len(records)
         count_30m = sum(1 for r in records if now - r[0] <= 1800)
 
-        table = (
-            f"📊 我在本群的发言统计\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"近 1 小时：{count_1h} 条\n"
-            f"近 30 分钟：{count_30m} 条\n"
-            f"━━━━━━━━━━━━━━"
-        )
-        yield event.plain_result(table)
+        lines = []
+        lines.append("📊 我在本群的发言统计")
+        lines.append("━━━━━━━━━━━━━━")
+        lines.append(f"近 1 小时：{count_1h} 条")
+        lines.append(f"近 30 分钟：{count_30m} 条")
+
+        # 可选：附带 Token 统计
+        if self.config.get("show_tokens_in_msg_stats", False):
+            lines.append("")
+            lines.append("【今日 Token】")
+            lines.append(f"输入：{self._format_token(self._daily_tokens.input)}")
+            lines.append(f"输出：{self._format_token(self._daily_tokens.output)}")
+            lines.append(f"合计：{self._format_token(self._daily_tokens.total)}")
+            lines.append(f"累计：{self._format_token(self._total_tokens.total)}")
+
+        lines.append("━━━━━━━━━━━━━━")
+        yield event.plain_result("\n".join(lines))
 
         if not records:
             yield event.plain_result("（最近 1 小时没有发言记录）")
@@ -526,6 +535,16 @@ class MsgStat(Star):
         else:
             lines.append("  （无记录）")
         lines.append("━━━━━━━━━━━━━━━━━━━━")
+
+        # 可选：附带 Token 统计
+        if self.config.get("show_tokens_in_all_stats", False):
+            lines.append("")
+            lines.append("【Token 统计】")
+            lines.append(f"今日消耗：{self._format_token(self._daily_tokens.total)} tokens")
+            lines.append(f"  ├ 输入：{self._format_token(self._daily_tokens.input)}")
+            lines.append(f"  └ 输出：{self._format_token(self._daily_tokens.output)}")
+            lines.append(f"累计总量：{self._format_token(self._total_tokens.total)} tokens")
+            lines.append("━━━━━━━━━━━━━━━━━━━━")
 
         report_text = "\n".join(lines)
         report_group = self.config.get("report_group_id", "").strip()

@@ -2,6 +2,12 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.1.0] - 2026-07-09
+
+### 新增
+- `show_tokens_in_msg_stats` 配置项：「看看消息」附带 Token 统计（默认关闭）
+- `show_tokens_in_all_stats` 配置项：「看看全部消息」附带 Token 统计（默认关闭）
+
 ## [2.0.0] - 2026-07-09
 
 ### 新增

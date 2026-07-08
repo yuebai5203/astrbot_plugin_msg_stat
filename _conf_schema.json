@@ -23,6 +23,18 @@
     "default": true,
     "hint": "开启后追踪每次 LLM 调用的 Token 用量，持久化累计到文件。"
   },
+  "show_tokens_in_msg_stats": {
+    "description": "「看看消息」附带 Token",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后，「看看消息」的统计表格中附带今日和累计 Token 用量。"
+  },
+  "show_tokens_in_all_stats": {
+    "description": "「看看全部消息」附带 Token",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后，「看看全部消息」的全局报表中附带今日和累计 Token 用量。"
+  },
   "max_forward_count": {
     "description": "合并转发最大条数",
     "type": "int",
