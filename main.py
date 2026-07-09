@@ -12,7 +12,7 @@ astrbot_plugin_msg_stat - AI 消息 & Token 统计插件
 - 看看token      → 今日/累计 Token 使用量
 
 Author: yuebai
-Version: 2.1.1
+Version: 2.1.2
 """
 
 import asyncio
@@ -51,7 +51,7 @@ def _yesterday() -> str:
     "astrbot_plugin_msg_stat",
     "yuebai",
     "AI消息&Token统计：消息计数、Token持久化追踪、每日午夜报表",
-    "2.1.1",
+    "2.1.2",
 )
 class MsgStat(Star):
     """
@@ -167,12 +167,8 @@ class MsgStat(Star):
         return id_
 
     def _format_token(self, n: int) -> str:
-        """格式化 token 数字，大数用万/亿缩略。"""
-        if n >= 1_0000_0000:
-            return f"{n / 1_0000_0000:.1f}亿"
-        if n >= 1_0000:
-            return f"{n / 1_0000:.1f}万"
-        return str(n)
+        """格式化 token 数字，千分位分隔。"""
+        return f"{n:,}"
 
     async def _resolve_names(self, platform_id: str, group_ids: list[str], user_ids: list[str]):
         """通过 OneBot API 并行查询群名和用户昵称。"""
