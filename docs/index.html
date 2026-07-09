@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 消息 & Token 统计 - AstrBot 插件</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --orange: #d2991d;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    h1 { font-size: 2em; margin-bottom: 8px; }
+    h2 { font-size: 1.4em; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 1.1em; margin: 20px 0 8px; color: var(--accent); }
+    p, li { color: var(--muted); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      margin: 4px 4px 4px 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+    }
+    .badge.green { border-color: var(--green); color: var(--green); }
+    .badge.orange { border-color: var(--orange); color: var(--orange); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    .card h3 { margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    th { color: var(--text); font-weight: 600; }
+    td { color: var(--muted); }
+    pre {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 0.9em;
+      color: var(--muted);
+    }
+    ul { padding-left: 20px; }
+    li { margin: 4px 0; }
+    .footer {
+      margin-top: 48px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.85em;
+      color: var(--muted);
+    }
+    .emoji { font-size: 1.2em; }
+  </style>
+</head>
+<body>
+
+<h1>📊 AI 消息 & Token 统计</h1>
+<p>AstrBot 插件 — 统计 AI 发言次数与 Token 用量，持久化追踪，每日报告。</p>
+
+<span class="badge green">AstrBot ≥ 4.0</span>
+<span class="badge orange">Apache 2.0</span>
+<span class="badge">QQ / NapCat</span>
+
+<h2>✨ 功能</h2>
+
+<div class="card">
+  <h3>📝 消息计数</h3>
+  <p>自动记录 AI 在群聊和私聊中发出的每条消息</p>
+</div>
+
+<div class="card">
+  <h3>📊 合并转发</h3>
+  <p><code>看看消息</code> — 当前群聊统计表格 + 合并转发最近消息</p>
+</div>
+
+<div class="card">
+  <h3>🌐 全局报表</h3>
+  <p><code>看看全部消息</code> — 所有群聊和私聊发言数，含群名/昵称，发送到指定群</p>
+</div>
+
+<div class="card">
+  <h3>🔢 Token 追踪</h3>
+  <p>实时追踪每次 LLM 调用的输入/输出 Token，<code>看看token</code> 随时查看</p>
+</div>
+
+<div class="card">
+  <h3>💾 持久化 + 每日报告</h3>
+  <p>累计 Token 保存到文件重启不丢。每天 00:00 自动发送昨日统计到汇报群</p>
+</div>
+
+<h2>📋 指令</h2>
+
+<table>
+  <tr><th>指令</th><th>说明</th></tr>
+  <tr><td><code>看看消息</code></td><td>当前群聊 1h/30min 统计 + 合并转发</td></tr>
+  <tr><td><code>看看全部消息</code></td><td>全局报表，发到配置的汇报群</td></tr>
+  <tr><td><code>看看token</code></td><td>今日和累计 Token 用量</td></tr>
+</table>
+
+<p>⚠️ 所有指令仅 AstrBot 管理员可用，群聊需 @bot。</p>
+
+<h2>⚙️ 配置</h2>
+
+<table>
+  <tr><th>配置项</th><th>说明</th><th>默认</th></tr>
+  <tr><td>机器人显示名称</td><td>合并转发中显示的昵称</td><td>留空=QQ号</td></tr>
+  <tr><td>汇报群号</td><td>报表投递目标群（QQ 群号）</td><td>必填</td></tr>
+  <tr><td>启用每日报告</td><td>每天 00:00 自动发报告</td><td>✅</td></tr>
+  <tr><td>启用 Token 追踪</td><td>追踪 Token 用量</td><td>✅</td></tr>
+  <tr><td>合并转发最大条数</td><td>看看消息转发条数上限</td><td>90</td></tr>
+  <tr><td>转发消息截断长度</td><td>单条消息截断字符数</td><td>500</td></tr>
+</table>
+
+<h2>📦 安装</h2>
+
+<ol>
+  <li>AstrBot 后台 → 插件市场 → 搜索「AI消息&Token统计」→ 安装</li>
+  <li>或手动：将本仓库放入 <code>data/plugins/</code> 目录</li>
+  <li>在插件配置面板设置 <strong>汇报群号</strong></li>
+  <li>重载插件即可使用</li>
+</ol>
+
+<h2>📄 许可证</h2>
+<p><a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License 2.0</a></p>
+
+<div class="footer">
+  <p>Made by <a href="https://github.com/yuebai5203">yuebai</a> · v2.0.0</p>
+</div>
+
+</body>
+</html>
