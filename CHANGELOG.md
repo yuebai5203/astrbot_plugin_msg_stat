@@ -2,6 +2,28 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.1.3] - 2026-07-10
+
+### 修复
+- **严重 Bug**：修复 `on_msg_sent` 中 `plain` 变量未定义导致消息计数完全失效——AI 发言不会上数
+- `_save_data` 改为 `async` + `asyncio.Lock`，防止并发写入时损坏数据文件
+
+### 优化
+- 每日报告发完后全局清理过期消息记录（`_cleanup_all_expired`），不再堆成屎山
+- 新增 `_cleanup_dead_keys`，跨天清理超过 24 小时无活动的空记录 key
+- 移除 `_load_data` 中从未使用的 `_yesterday_group_snapshot` / `_yesterday_private_snapshot` 死代码
+
+## [2.1.2] - 2026-07-10
+
+### 修复
+- 紧急修复：消息链 builder 兼容性
+
+## [2.1.1] - 2026-07-10
+
+### 修复
+- 移除 `on_msg_sent` 中对消息 `get_plain_text()` 的过滤——纯图片、合并转发等非纯文本消息现在也能被计数
+- 每日报告中的「昨日总计」改为「消息总数」——标题已经是昨日日期，无需再加"昨日"
+
 ## [2.1.0] - 2026-07-09
 
 ### 新增
