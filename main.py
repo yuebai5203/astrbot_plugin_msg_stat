@@ -12,7 +12,7 @@ astrbot_plugin_msg_stat - AI 消息 & Token 统计插件
 - 看看token      → 今日/累计 Token 使用量
 
 Author: yuebai
-Version: 2.1.0
+Version: 2.1.2
 """
 
 import asyncio
@@ -51,7 +51,7 @@ def _yesterday() -> str:
     "astrbot_plugin_msg_stat",
     "yuebai",
     "AI消息&Token统计：消息计数、Token持久化追踪、每日午夜报表",
-    "2.1.0",
+    "2.1.2",
 )
 class MsgStat(Star):
     """
@@ -86,6 +86,9 @@ class MsgStat(Star):
         self._last_report_date: str = ""  # 上次已发送报告的日期
         self._report_lock = asyncio.Lock()
 
+        # ── 持久化锁 ──
+        self._save_lock = asyncio.Lock()
+
         # ── 名称缓存 ──
         self._group_name_cache: dict[str, str] = {}
         self._user_name_cache: dict[str, str] = {}
@@ -110,42 +113,34 @@ class MsgStat(Star):
                     output=t.get("output", 0),
                 )
                 self._last_report_date = raw.get("last_report_date", "")
-                # 加载昨天的每日消息统计
-                yd = raw.get("yesterday_snapshot", {})
-                self._yesterday_group_snapshot = yd.get("groups", {})
-                self._yesterday_private_snapshot = yd.get("private", {})
                 logger.info(
                     f"[MsgStat] 已加载持久化数据 | "
                     f"累计Token={self._total_tokens.total} | "
                     f"最后报告={self._last_report_date}"
                 )
-            else:
-                self._yesterday_group_snapshot = {}
-                self._yesterday_private_snapshot = {}
         except Exception as e:
             logger.error(f"[MsgStat] 加载数据文件失败: {e}")
-            self._yesterday_group_snapshot = {}
-            self._yesterday_private_snapshot = {}
 
-    def _save_data(self):
-        """保存累计 Token 和每日快照到文件。"""
-        try:
-            data = {
-                "total_tokens": {
-                    "input_other": self._total_tokens.input_other,
-                    "input_cached": self._total_tokens.input_cached,
-                    "output": self._total_tokens.output,
-                },
-                "last_report_date": self._last_report_date,
-                "yesterday_snapshot": {
-                    "groups": dict(self._daily_group_msgs),
-                    "private": dict(self._daily_private_msgs),
-                },
-            }
-            with open(DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logger.error(f"[MsgStat] 保存数据文件失败: {e}")
+    async def _save_data(self):
+        """保存累计 Token 和每日快照到文件（异步加锁，防止并发写损坏）。"""
+        async with self._save_lock:
+            try:
+                data = {
+                    "total_tokens": {
+                        "input_other": self._total_tokens.input_other,
+                        "input_cached": self._total_tokens.input_cached,
+                        "output": self._total_tokens.output,
+                    },
+                    "last_report_date": self._last_report_date,
+                    "yesterday_snapshot": {
+                        "groups": dict(self._daily_group_msgs),
+                        "private": dict(self._daily_private_msgs),
+                    },
+                }
+                with open(DATA_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                logger.error(f"[MsgStat] 保存数据文件失败: {e}")
 
     # ══════════════════════════════════════════════════════════
     #  辅助方法
@@ -160,6 +155,45 @@ class MsgStat(Star):
         if before != len(records[key]):
             logger.debug(f"[MsgStat] 清理 {key}：{before} → {len(records[key])}")
 
+    def _cleanup_dead_keys(self):
+        """清理超过 24 小时无新消息的空记录 key，防止 dict 无限膨胀。"""
+        now = time.time()
+        deadline = now - 86400
+        for records_name, last_clean_dict in [
+            ("_group_records", self._last_clean_group),
+            ("_private_records", self._last_clean_private),
+        ]:
+            records = getattr(self, records_name)
+            dead_keys = [
+                k for k, lst in records.items()
+                if not lst and last_clean_dict.get(k, 0) < deadline
+            ]
+            for k in dead_keys:
+                del records[k]
+                last_clean_dict.pop(k, None)
+            if dead_keys:
+                logger.debug(f"[MsgStat] 清理死 key {len(dead_keys)} 个 ({records_name})")
+
+    def _cleanup_all_expired(self):
+        """全局扫一遍清理所有过期（超过 1 小时）的消息记录。"""
+        now = time.time()
+        for records_name in ("_group_records", "_private_records"):
+            records = getattr(self, records_name)
+            before_total = sum(len(v) for v in records.values())
+            keys_to_drop = []
+            for k, lst in list(records.items()):
+                records[k] = [r for r in lst if r[0] > now - 3600]
+                if not records[k]:
+                    keys_to_drop.append(k)
+            for k in keys_to_drop:
+                del records[k]
+            after_total = sum(len(v) for v in records.values())
+            if before_total != after_total:
+                logger.info(
+                    f"[MsgStat] 全局清理 {records_name}："
+                    f"{before_total} → {after_total} 条，移除 {len(keys_to_drop)} 个空 key"
+                )
+
     def _name_with_cache(self, cache: dict[str, str], id_: str) -> str:
         name = cache.get(id_, "")
         if name:
@@ -167,12 +201,8 @@ class MsgStat(Star):
         return id_
 
     def _format_token(self, n: int) -> str:
-        """格式化 token 数字，大数用万/亿缩略。"""
-        if n >= 1_0000_0000:
-            return f"{n / 1_0000_0000:.1f}亿"
-        if n >= 1_0000:
-            return f"{n / 1_0000:.1f}万"
-        return str(n)
+        """格式化 token 数字，千分位分隔。"""
+        return f"{n:,}"
 
     async def _resolve_names(self, platform_id: str, group_ids: list[str], user_ids: list[str]):
         """通过 OneBot API 并行查询群名和用户昵称。"""
@@ -244,6 +274,9 @@ class MsgStat(Star):
         self._daily_private_msgs.clear()
         self._daily_tokens = TokenUsage()
 
+        # 清理死 key（超过 24 小时无活动的空记录）
+        self._cleanup_dead_keys()
+
         # 发送报告（加锁防止并发重复发送）
         if not self._report_lock.locked():
             async with self._report_lock:
@@ -253,7 +286,9 @@ class MsgStat(Star):
                     event, yesterday, yesterday_groups, yesterday_private, yesterday_tokens
                 )
                 self._last_report_date = yesterday
-                self._save_data()
+                # 报告发完，全局清理过期消息记录，防止堆成屎山
+                await self._cleanup_all_expired()
+                await self._save_data()
 
     async def _send_daily_report(
         self,
@@ -317,7 +352,7 @@ class MsgStat(Star):
                 lines.append(f"  {label}：{private[uid]} 条")
         else:
             lines.append("  （无）")
-        lines.append(f"昨日总计：{total_msgs} 条")
+        lines.append(f"消息总数：{total_msgs} 条")
         lines.append("")
 
         # ── Token 统计 ──
@@ -358,7 +393,7 @@ class MsgStat(Star):
         self._total_tokens = self._total_tokens + usage
 
         # 保存持久化数据
-        self._save_data()
+        await self._save_data()
 
         # 检查跨天
         await self._check_day_change(event)
@@ -372,9 +407,14 @@ class MsgStat(Star):
         result = event.get_result()
         if not result:
             return
-        plain = result.get_plain_text()
-        if not plain or not plain.strip():
-            return
+
+        # 提取消息文本（修复 plain 未定义问题）
+        if hasattr(result, 'get_plain_text'):
+            plain = result.get_plain_text()
+        elif hasattr(result, 'chain'):
+            plain = "".join(c.text for c in result.chain if hasattr(c, 'text'))
+        else:
+            plain = str(result)
 
         self_id = event.get_self_id()
         display_name = self.config.get("bot_display_name", "") or self_id
@@ -400,7 +440,7 @@ class MsgStat(Star):
                     self._last_clean_private[user_id] = now
 
         # 保存持久化数据（每日消息快照）
-        self._save_data()
+        await self._save_data()
 
         # 检查跨天
         await self._check_day_change(event)
